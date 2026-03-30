@@ -1,0 +1,29 @@
+name: recursive_reasoning.trm_swin@TinyRecursiveReasoningModelSwin_ACTV1
+
+loss:
+  name: losses@ACTLossHead
+  loss_type: stablemax_cross_entropy
+
+halt_exploration_prob: 0.1
+halt_max_steps: 16
+
+H_cycles: 3
+L_cycles: 6
+H_layers: 0
+L_layers: 2
+
+hidden_size: 512
+num_heads: 8
+expansion: 4
+
+puzzle_emb_ndim: ${.hidden_size}
+puzzle_emb_len: 16
+
+# Swin usually does not need RoPE; start with none
+pos_encodings: none
+forward_dtype: bfloat16
+no_ACT_continue: True
+
+window_size: 3
+shift_size: 1
+prefix_mlp: True
