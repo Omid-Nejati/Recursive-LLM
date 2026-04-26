@@ -44,7 +44,7 @@ python dataset/build_maze_dataset.py # 1000 examples, 8 augments
 
 ## Experiments
 
-### Sudoku-Extreme (assuming 1 L40S GPU):
+### Sudoku-Extreme (assuming 1 A-100 GPU):
 
 ```bash
 run_name="pretrain_mlp_t_sudoku"
@@ -77,7 +77,7 @@ arch.H_cycles=3 arch.L_cycles=6 \
 
 *Runtime:* < 20 hours
 
-### Maze-Hard (assuming 4 L40S GPUs):
+### Maze-Hard (assuming 4 H-100 GPUs):
 
 ```bash
 run_name="pretrain_att_maze30x30"
