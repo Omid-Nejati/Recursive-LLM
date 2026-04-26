@@ -19,11 +19,11 @@ expansion: 4
 puzzle_emb_ndim: ${.hidden_size}
 puzzle_emb_len: 16
 
-# Swin usually does not need RoPE; start with none
 pos_encodings: none
-forward_dtype: bfloat16
+forward_dtype: float32
 no_ACT_continue: True
 
 window_size: 3
 shift_size: 1
-prefix_mlp: True
+use_global_token_mixer: True
+global_mixer_expansion: 1.0
