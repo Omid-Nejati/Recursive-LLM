@@ -1,9 +1,9 @@
-# Less is More: Recursive Reasoning with Tiny Networks
+# Conversational AI Course Project: Tiny Recursive Model 
 
 
 ### Requirements
 
-Installation should take a few minutes. For the smallest experiments on Sudoku-Extreme (pretrain_mlp_t_sudoku), you need 1 GPU with enough memory. With 1 L40S (48Gb Ram), it takes around 18h to finish. In case that you run into issues due to library versions, here is the requirements with the exact versions used: [specific_requirements.txt](https://github.com/SamsungSAILMontreal/TinyRecursiveModels/blob/main/specific_requirements.txt).
+Installation should take a few minutes. For the smallest experiments on Sudoku-Extreme (pretrain_mlp_t_sudoku), you need 1 GPU with enough memory. With 1 A100 (40Gb Ram), it takes around 18h to finish. In case that you run into issues due to library versions, here is the requirements with the exact versions used: 
 
 - Python 3.10 (or similar)
 - Cuda 12.6.0 (or similar)
@@ -59,7 +59,7 @@ arch.L_layers=2 \
 arch.H_cycles=3 arch.L_cycles=6 \
 +run_name=${run_name} ema=True
 
-Expected: Around 87% exact-accuracy (+- 2%)
+
 
 run_name="pretrain_att_sudoku"
 python pretrain.py \
@@ -73,7 +73,7 @@ arch.H_cycles=3 arch.L_cycles=6 \
 +run_name=${run_name} ema=True
 ```
 
-Expected: Around 75% exact-accuracy (+- 2%)
+
 
 *Runtime:* < 20 hours
 
