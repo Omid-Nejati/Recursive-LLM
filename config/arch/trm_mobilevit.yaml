@@ -14,17 +14,16 @@ L_layers: 2
 
 hidden_size: 512
 num_heads: 8
-expansion: 4
+expansion: 2
 
 puzzle_emb_ndim: ${.hidden_size}
 puzzle_emb_len: 16
 
-# Start simple first
 pos_encodings: none
-forward_dtype: bfloat16
+forward_dtype: float32
 no_ACT_continue: True
 
 conv_kernel_size: 3
 mobilevit_depth: 1
-prefix_mlp: True
-use_global_attention: True
+prefix_mlp: False
+use_global_attention: False
