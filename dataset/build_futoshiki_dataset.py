@@ -30,7 +30,8 @@ cli = ArgParser()
 
 class DataProcessConfig(BaseModel):
     source_repo: str = "yuruny/futoshiki_generated_dataset_5x5_6-8"
-    output_dir: str = "data/futoshiki-5x5-generated"
+    # Square 9x9 encoding so MobileViT can reshape seq_len into a 2D grid.
+    output_dir: str = "data/futoshiki-5x5-square"
 
     # Hugging Face split to read from
     source_split: str = "train"
@@ -56,7 +57,7 @@ BLANK_ID = 1
 DIGIT_OFFSET = 1
 
 # Constraint encoding
-# no constraint -> 7
+# no constraint/filler -> 7
 # horizontal: <, >
 # vertical normalized as:
 #   ^ means top > bottom
@@ -68,6 +69,9 @@ UP_ID = 10
 DOWN_ID = 11
 
 VOCAB_SIZE = 12
+BOARD_SIZE = 5
+SQUARE_SIZE = 2 * BOARD_SIZE - 1  # 9
+SEQ_LEN = SQUARE_SIZE * SQUARE_SIZE  # 81
 
 
 def encode_digit(x: int) -> int:
@@ -107,7 +111,7 @@ def build_constraint_planes(board_size: int, constraints: dict):
         # Horizontal adjacent cells
         if r1 == r2 and abs(c1 - c2) == 1:
             left_c = min(c1, c2)
-            left_is_first = (c1 < c2)
+            left_is_first = c1 < c2
 
             # Normalize relation to: left ? right
             if left_is_first:
@@ -125,7 +129,7 @@ def build_constraint_planes(board_size: int, constraints: dict):
         # Vertical adjacent cells
         elif c1 == c2 and abs(r1 - r2) == 1:
             top_r = min(r1, r2)
-            top_is_first = (r1 < r2)
+            top_is_first = r1 < r2
 
             # Normalize relation to: top ? bottom
             if top_is_first:
@@ -152,16 +156,24 @@ def build_constraint_planes(board_size: int, constraints: dict):
 
 def encode_example(example: dict):
     """
-    Sequence layout for 5x5 Futoshiki:
-      [25 grid cells] + [20 horizontal constraints] + [20 vertical constraints]
-    Total seq_len = 65
-Labels:
-      first 25 positions = solved grid digits
-      last 40 positions = 0 (ignored in loss)
+    Square MobileViT-friendly sequence layout for 5x5 Futoshiki.
+
+    We represent the puzzle as a 9x9 lattice:
+      - cell values are placed at even-even positions:      (2r, 2c)
+      - horizontal constraints are at even-odd positions:   (2r, 2c+1)
+      - vertical constraints are at odd-even positions:     (2r+1, 2c)
+      - unused odd-odd positions are filled with NO_CONSTRAINT_ID
+
+    Total seq_len = 9 * 9 = 81, which is a perfect square and can be
+    reshaped by the MobileViT block.
+
+    Labels:
+      - solved grid digits are placed only at even-even cell positions
+      - all constraint/filler positions are 0 and ignored by the loss
     """
     n = example["board_size"]
-    if n != 5:
-        raise ValueError(f"This script expects board_size=5, got {n}")
+    if n != BOARD_SIZE:
+        raise ValueError(f"This script expects board_size={BOARD_SIZE}, got {n}")
 
     grid = np.array(example["grid"], dtype=np.int64)
     solution = np.array(example["solution"], dtype=np.int64)
@@ -169,24 +181,31 @@ Labels:
 
     horiz, vert = build_constraint_planes(n, constraints)
 
-    # Encode input
-    grid_tokens = np.vectorize(encode_digit)(grid).reshape(-1)
-    horiz_tokens = horiz.reshape(-1)
-    vert_tokens = vert.reshape(-1)
+    input_grid = np.full((SQUARE_SIZE, SQUARE_SIZE), NO_CONSTRAINT_ID, dtype=np.uint8)
+    label_grid = np.zeros((SQUARE_SIZE, SQUARE_SIZE), dtype=np.uint8)
 
-    input_tokens = np.concatenate([grid_tokens, horiz_tokens, vert_tokens], axis=0)
-    assert input_tokens.shape[0] == 65
+    # Board cells and solution labels
+    for r in range(n):
+        for c in range(n):
+            rr, cc = 2 * r, 2 * c
+            input_grid[rr, cc] = encode_digit(int(grid[r, c]))
+            label_grid[rr, cc] = encode_solution_digit(int(solution[r, c]))
 
-    # Encode labels: only solve the 25 board cells
-    solution_tokens = np.vectorize(encode_solution_digit)(solution).reshape(-1)
-    label_tokens = np.concatenate(
-        [
-            solution_tokens,
-            np.zeros(horiz_tokens.shape[0] + vert_tokens.shape[0], dtype=np.uint8),
-        ],
-        axis=0,
-    )
-    assert label_tokens.shape[0] == 65
+    # Horizontal constraints: between left and right cells
+    for r in range(n):
+        for c in range(n - 1):
+            input_grid[2 * r, 2 * c + 1] = horiz[r, c]
+
+    # Vertical constraints: between top and bottom cells
+    for r in range(n - 1):
+        for c in range(n):
+            input_grid[2 * r + 1, 2 * c] = vert[r, c]
+
+    input_tokens = input_grid.reshape(-1)
+    label_tokens = label_grid.reshape(-1)
+
+    assert input_tokens.shape[0] == SEQ_LEN
+    assert label_tokens.shape[0] == SEQ_LEN
 
     return input_tokens.astype(np.uint8), label_tokens.astype(np.uint8)
 
@@ -207,7 +226,7 @@ def save_split(split_name: str, inputs: np.ndarray, labels: np.ndarray, output_d
     }
 
     metadata = PuzzleDatasetMetadata(
-        seq_len=65,
+        seq_len=SEQ_LEN,
         vocab_size=VOCAB_SIZE,
         pad_id=PAD_ID,
         ignore_label_id=0,
@@ -290,6 +309,7 @@ def convert_subset(config: DataProcessConfig):
     print(f"Total examples: {num_examples}")
     print(f"Train examples: {train_inputs.shape[0]}")
     print(f"Test examples: {test_inputs.shape[0]}")
+    print(f"seq_len: {SEQ_LEN} = {SQUARE_SIZE}x{SQUARE_SIZE}")
 
 
 @cli.command(singleton=True)
